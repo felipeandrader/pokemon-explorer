@@ -26,7 +26,7 @@ export function MapControls({ onZoomIn, onZoomOut, onFit, panelOpen = false }: P
           key={key}
           onClick={handlers[key]}
           title={title}
-          className="w-8 h-8 bg-gray-800/85 hover:bg-gray-700 border border-gray-700/70 text-gray-300 hover:text-white text-sm rounded flex items-center justify-center transition-colors backdrop-blur-sm shadow select-none"
+          className="btn-pixel w-8 h-8 bg-tk-s2 hover:bg-tk-s3 border border-tk-b1 text-tk-t3 hover:text-tk-t1 text-sm flex items-center justify-center transition-colors shadow select-none"
         >
           {label}
         </button>

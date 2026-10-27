@@ -9,14 +9,21 @@ import { MapControls } from './MapControls'
 import { useStore, type SizeMode } from '../store/useStore'
 import { type ColorMode, buildColorGroups, buildAbColorGroups } from '../constants/colorModes'
 
-const POINT_RADIUS    = 4    // default screen px
-const SIZE_MIN_PX     = 2
-const SIZE_MAX_PX     = 7
-const HOVER_RADIUS    = 7
-const SELECTED_RADIUS = 8
-const HOVER_THRESHOLD = 20
-const PADDING         = 48
-const TWO_PI          = Math.PI * 2
+// ─── constants ────────────────────────────────────────────────────────────────
+
+const POINT_HALF    = 3.5   // half-side of squares (px at zoom 1)
+const SIZE_MIN_PX   = 2
+const SIZE_MAX_PX   = 7
+const HOVER_HALF    = 7
+const SELECTED_HALF = 9
+const HOVER_THRESHOLD     = 20
+const PADDING             = 48
+const TWO_PI              = Math.PI * 2
+const SPRITE_ZOOM_THRESHOLD = 6
+const SPRITE_SCREEN_SIZE    = 56
+const GRID_STEP             = 40   // world units
+
+type SpriteState = 'loading' | 'error' | HTMLImageElement
 
 // ─── pure helpers ─────────────────────────────────────────────────────────────
 
@@ -43,7 +50,8 @@ function computeFitTransform(
 function getAxisLabels(
   components: number[][], features: string[],
 ): { xLeft: string; xRight: string; yTop: string; yBot: string } {
-  const abbrev = (f: string) => ({ hp: 'HP', attack: 'Atk', defense: 'Def', sp_attack: 'SpA', sp_defense: 'SpD', speed: 'Spe' }[f] ?? f)
+  const abbrev = (f: string) =>
+    ({ hp: 'HP', attack: 'Atk', defense: 'Def', sp_attack: 'SpA', sp_defense: 'SpD', speed: 'Spe' }[f] ?? f)
   const pc1 = components[0]
   const pc2 = components[1]
   const allPos = pc1.every(l => l > 0)
@@ -58,10 +66,7 @@ function getAxisLabels(
 
 function computeRadii(pokemon: Pokemon[], sizeMode: SizeMode): Float32Array {
   const arr = new Float32Array(pokemon.length)
-  if (sizeMode === 'none') {
-    arr.fill(POINT_RADIUS)
-    return arr
-  }
+  if (sizeMode === 'none') { arr.fill(POINT_HALF); return arr }
   const values = pokemon.map(p => sizeMode === 'bst' ? p.bst : p.stats.speed)
   const min = Math.min(...values)
   const range = (Math.max(...values) - min) || 1
@@ -83,6 +88,63 @@ function buildEvoPairs(pokemon: Pokemon[]): [number, number][] {
   return pairs
 }
 
+// ─── canvas drawing helpers ───────────────────────────────────────────────────
+
+function drawPokeball(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+  r: number, k: number,
+  pixel: boolean,
+) {
+  const lw = 1.5 / k
+
+  // Top half — red
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, Math.PI, 0)
+  ctx.closePath()
+  ctx.fillStyle = '#cc2233'
+  ctx.fill()
+
+  // Bottom half — white
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI)
+  ctx.closePath()
+  ctx.fillStyle = '#f0f0f0'
+  ctx.fill()
+
+  // Outer ring
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, TWO_PI)
+  ctx.strokeStyle = '#0a1214'
+  ctx.lineWidth = lw
+  ctx.stroke()
+
+  // Center divider
+  ctx.beginPath()
+  ctx.moveTo(cx - r, cy)
+  ctx.lineTo(cx + r, cy)
+  ctx.strokeStyle = '#0a1214'
+  ctx.lineWidth = lw
+  ctx.stroke()
+
+  // Inner circle
+  const ir = r * 0.32
+  ctx.beginPath()
+  ctx.arc(cx, cy, ir, 0, TWO_PI)
+  ctx.fillStyle = '#f8f8f8'
+  ctx.fill()
+  ctx.strokeStyle = '#0a1214'
+  ctx.lineWidth = lw * 0.7
+  ctx.stroke()
+
+  // Selection accent ring
+  ctx.beginPath()
+  ctx.arc(cx, cy, r + lw * 2.5, 0, TWO_PI)
+  ctx.strokeStyle = pixel ? '#f8d030' : '#f59e0b'
+  ctx.lineWidth = lw * 1.5
+  ctx.stroke()
+}
+
 // ─── types ────────────────────────────────────────────────────────────────────
 
 interface HoverState { pokemon: Pokemon; mouseX: number; mouseY: number }
@@ -97,9 +159,9 @@ export function PokemonMap({ data }: Props) {
   const scheduleDrawRef  = useRef<(() => void) | null>(null)
   const matchingSetRef   = useRef<Set<number> | null>(null)
   const colorGroupsRef   = useRef<Map<string, number[]>>(new Map())
-  const colorModeRef       = useRef<ColorMode>('type')
-  const activeFilterARef   = useRef<((p: Pokemon) => boolean) | null>(null)
-  const activeFilterBRef   = useRef<((p: Pokemon) => boolean) | null>(null)
+  const colorModeRef     = useRef<ColorMode>('type')
+  const activeFilterARef = useRef<((p: Pokemon) => boolean) | null>(null)
+  const activeFilterBRef = useRef<((p: Pokemon) => boolean) | null>(null)
   const axisXRef         = useRef(0)
   const axisYRef         = useRef(0)
   const fitToViewRef     = useRef<() => void>(() => {})
@@ -108,6 +170,7 @@ export function PokemonMap({ data }: Props) {
   const selectedIdxRef   = useRef(-1)
   const radiiRef         = useRef<Float32Array>(new Float32Array())
   const showEvoLinesRef  = useRef(false)
+  const spriteCacheRef   = useRef<Map<number, SpriteState>>(new Map())
 
   const [hover, setHover]           = useState<HoverState | null>(null)
   const [matchCount, setMatchCount] = useState(data.pokemon.length)
@@ -120,6 +183,13 @@ export function PokemonMap({ data }: Props) {
     pokemon.forEach((p, i) => m.set(p.name, i))
     idToIdxRef.current = m
   }, [pokemon])
+
+  // ── theme MutationObserver — triggers redraw on theme switch ──────────────
+  useEffect(() => {
+    const observer = new MutationObserver(() => scheduleDrawRef.current?.())
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => observer.disconnect()
+  }, [])
 
   // ── active filter → matchingSet ──────────────────────────────────────────
   const activeFilter = useStore(s => s.activeFilter)
@@ -144,7 +214,6 @@ export function PokemonMap({ data }: Props) {
     colorModeRef.current     = colorMode
     activeFilterARef.current = activeFilterA
     activeFilterBRef.current = activeFilterB
-
     colorGroupsRef.current = colorMode === 'ab'
       ? buildAbColorGroups(pokemon, activeFilterA, activeFilterB)
       : buildColorGroups(pokemon, colorMode)
@@ -194,8 +263,8 @@ export function PokemonMap({ data }: Props) {
     const p2y   = pcaYs[Math.floor(n * 0.02)]
     const p98y  = pcaYs[Math.min(Math.floor(n * 0.98), n - 1)]
 
-    const axisLabels = getAxisLabels(data.meta.pca.components, data.meta.features)
-    const evoPairs   = buildEvoPairs(pokemon)
+    const axisLabels  = getAxisLabels(data.meta.pca.components, data.meta.features)
+    const evoPairs    = buildEvoPairs(pokemon)
     const zoomBehavior = zoom<HTMLCanvasElement, unknown>().scaleExtent([0.3, 40])
 
     function updateZoomExtent(w: number, h: number) {
@@ -215,153 +284,207 @@ export function PokemonMap({ data }: Props) {
       delaunay = Delaunay.from(baseCoords)
     }
 
+    function loadSprite(i: number, url: string) {
+      spriteCacheRef.current.set(i, 'loading')
+      const img = new Image()
+      img.onload  = () => { spriteCacheRef.current.set(i, img); scheduleDraw() }
+      img.onerror = () => { spriteCacheRef.current.set(i, 'error') }
+      img.src = url
+    }
+
     function draw() {
       if (!canvas) return
       const ctx = canvas.getContext('2d')
       if (!ctx || baseCoords.length === 0) return
 
       const { width, height } = canvas
+      const k      = transform.k
+      const pixel  = document.documentElement.getAttribute('data-theme') === 'pixel'
+      const radii      = radiiRef.current
+      const matchSet   = matchingSetRef.current
+      const colorGroups = colorGroupsRef.current
+
       ctx.clearRect(0, 0, width, height)
+
+      // ── A. Scanlines (screen space, before world content) ───────────────
+      if (pixel) {
+        ctx.save()
+        ctx.globalAlpha = 0.025
+        ctx.fillStyle   = '#000000'
+        for (let y = 0; y < height; y += 2) ctx.fillRect(0, y, width, 1)
+        ctx.restore()
+      }
+
+      // ── B. Enter world space ────────────────────────────────────────────
       ctx.save()
       ctx.translate(transform.x, transform.y)
-      ctx.scale(transform.k, transform.k)
+      ctx.scale(k, k)
 
-      // Axes
+      // ── C. Dotted background grid ───────────────────────────────────────
+      {
+        const minScreenGap = 25
+        const gs = Math.max(GRID_STEP, Math.ceil(minScreenGap / k / 10) * 10)
+        const [wx0, wy0] = transform.invert([0, 0] as [number, number])
+        const [wx1, wy1] = transform.invert([width, height] as [number, number])
+        const dotR = 1 / k
+        ctx.fillStyle = pixel
+          ? 'rgba(46, 74, 106, 0.30)'
+          : 'rgba(107, 114, 128, 0.10)'
+        for (let gx = Math.floor(wx0 / gs) * gs; gx <= wx1; gx += gs)
+          for (let gy = Math.floor(wy0 / gs) * gs; gy <= wy1; gy += gs)
+            ctx.fillRect(gx - dotR, gy - dotR, dotR * 2, dotR * 2)
+      }
+
+      // ── D. Radar rings ──────────────────────────────────────────────────
+      {
+        const cx = axisXRef.current
+        const cy = axisYRef.current
+        ctx.strokeStyle = pixel ? 'rgba(46, 74, 106, 0.22)' : 'rgba(107, 114, 128, 0.08)'
+        ctx.lineWidth = 1 / k
+        ctx.setLineDash([])
+        for (let r = 80; r < 1500; r += 80) {
+          ctx.beginPath()
+          ctx.arc(cx, cy, r, 0, TWO_PI)
+          ctx.stroke()
+        }
+      }
+
+      // ── E. Dashed axes ──────────────────────────────────────────────────
       const axX = axisXRef.current
       const axY = axisYRef.current
-      ctx.strokeStyle = 'rgba(75, 85, 99, 0.4)'
-      ctx.lineWidth   = 1 / transform.k
-      ctx.setLineDash([5 / transform.k, 4 / transform.k])
+      ctx.strokeStyle = pixel ? 'rgba(46, 74, 106, 0.5)' : 'rgba(75, 85, 99, 0.4)'
+      ctx.lineWidth   = 1 / k
+      ctx.setLineDash([5 / k, 4 / k])
       ctx.beginPath(); ctx.moveTo(-99999, axY); ctx.lineTo(99999, axY); ctx.stroke()
       ctx.beginPath(); ctx.moveTo(axX, -99999); ctx.lineTo(axX, 99999); ctx.stroke()
       ctx.setLineDash([])
 
-      // Evolution lines (drawn before points so points appear on top)
+      // ── F. Evolution lines ──────────────────────────────────────────────
       if (showEvoLinesRef.current && evoPairs.length > 0) {
-        const matchSet = matchingSetRef.current
-        ctx.lineWidth = 0.6 / transform.k
-
+        ctx.lineWidth = 0.6 / k
         if (matchSet === null) {
-          // No filter: all lines at low opacity
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'
           ctx.beginPath()
           for (const [pi, ci] of evoPairs) {
             const [px, py] = baseCoords[pi]
             const [cx, cy] = baseCoords[ci]
-            ctx.moveTo(px, py)
-            ctx.lineTo(cx, cy)
+            ctx.moveTo(px, py); ctx.lineTo(cx, cy)
           }
           ctx.stroke()
         } else {
-          // Filter active: only draw lines where both endpoints match
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'
           ctx.beginPath()
           for (const [pi, ci] of evoPairs) {
             if (!matchSet.has(pi) || !matchSet.has(ci)) continue
             const [px, py] = baseCoords[pi]
             const [cx, cy] = baseCoords[ci]
-            ctx.moveTo(px, py)
-            ctx.lineTo(cx, cy)
+            ctx.moveTo(px, py); ctx.lineTo(cx, cy)
           }
           ctx.stroke()
         }
       }
 
-      // Points
-      const radii       = radiiRef.current
-      const matchSet    = matchingSetRef.current
-      const colorGroups = colorGroupsRef.current
-
-      if (matchSet !== null) {
-        // Non-matching: dim gray, smaller
-        ctx.globalAlpha = 0.08
-        ctx.fillStyle   = '#6b7280'
-        ctx.beginPath()
-        for (let i = 0; i < pokemon.length; i++) {
-          if (matchSet.has(i)) continue
-          const [x, y] = baseCoords[i]
-          const sr = (radii[i] ?? POINT_RADIUS) * 0.6 / transform.k
-          ctx.moveTo(x + sr, y)
-          ctx.arc(x, y, sr, 0, TWO_PI)
-        }
-        ctx.fill()
-        ctx.globalAlpha = 1.0
-
-        // Matching: colored fill (batched by color, variable radius)
-        for (const [color, indices] of colorGroups) {
+      // ── G. Non-matching squares (dim gray) ─────────────────────────────
+      if (k < SPRITE_ZOOM_THRESHOLD) {
+        // ── G. Non-matching squares (dim gray) ────────────────────────────
+        if (matchSet !== null) {
+          ctx.globalAlpha = 0.08
+          ctx.fillStyle   = '#6b7280'
           ctx.beginPath()
-          ctx.fillStyle = color
-          for (const i of indices) {
-            if (!matchSet.has(i)) continue
+          for (let i = 0; i < pokemon.length; i++) {
+            if (matchSet.has(i)) continue
             const [x, y] = baseCoords[i]
-            const r = (radii[i] ?? POINT_RADIUS) / transform.k
-            ctx.moveTo(x + r, y)
-            ctx.arc(x, y, r, 0, TWO_PI)
+            const h = ((radii[i] ?? POINT_HALF) * 0.6) / k
+            ctx.rect(x - h, y - h, h * 2, h * 2)
+          }
+          ctx.fill()
+          ctx.globalAlpha = 1.0
+        }
+
+        // ── H. Matching squares (colored, batched by color group) ─────────
+        for (const [color, indices] of colorGroups) {
+          ctx.fillStyle = color
+          ctx.beginPath()
+          for (const i of indices) {
+            if (matchSet !== null && !matchSet.has(i)) continue
+            const [x, y] = baseCoords[i]
+            const h = (radii[i] ?? POINT_HALF) / k
+            ctx.rect(x - h, y - h, h * 2, h * 2)
           }
           ctx.fill()
         }
 
-        // White outline on matching
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
-        ctx.lineWidth   = 0.8 / transform.k
+        // ── I. Dark outline on all visible squares ────────────────────────
+        ctx.strokeStyle = 'rgba(6, 14, 22, 0.55)'
+        ctx.lineWidth   = 0.5 / k
         ctx.beginPath()
         for (const [, indices] of colorGroups) {
           for (const i of indices) {
-            if (!matchSet.has(i)) continue
+            if (matchSet !== null && !matchSet.has(i)) continue
             const [x, y] = baseCoords[i]
-            const r = (radii[i] ?? POINT_RADIUS) / transform.k
-            ctx.moveTo(x + r, y)
-            ctx.arc(x, y, r, 0, TWO_PI)
+            const h = (radii[i] ?? POINT_HALF) / k
+            ctx.rect(x - h, y - h, h * 2, h * 2)
           }
         }
         ctx.stroke()
-      } else {
-        for (const [color, indices] of colorGroups) {
-          ctx.beginPath()
-          ctx.fillStyle = color
-          for (const i of indices) {
-            const [x, y] = baseCoords[i]
-            const r = (radii[i] ?? POINT_RADIUS) / transform.k
-            ctx.moveTo(x + r, y)
-            ctx.arc(x, y, r, 0, TWO_PI)
-          }
-          ctx.fill()
+
+        // ── J. Hover outline ──────────────────────────────────────────────
+        if (hoveredIdx >= 0) {
+          const [x, y] = baseCoords[hoveredIdx]
+          const pr = radii[hoveredIdx] ?? POINT_HALF
+          const hh = Math.max(HOVER_HALF, pr + 1) / k
+          ctx.strokeStyle = '#ffffff'
+          ctx.lineWidth   = 1.5 / k
+          ctx.strokeRect(x - hh, y - hh, hh * 2, hh * 2)
+        }
+
+        // ── K. Selected — Pokéball marker ─────────────────────────────────
+        const selIdx = selectedIdxRef.current
+        if (selIdx >= 0) {
+          const [x, y] = baseCoords[selIdx]
+          const pr = radii[selIdx] ?? POINT_HALF
+          const ballR = Math.max(SELECTED_HALF, pr + 3) / k
+          drawPokeball(ctx, x, y, ballR, k, pixel)
         }
       }
 
-      // Selected ring (amber)
-      const selIdx = selectedIdxRef.current
-      if (selIdx >= 0) {
-        const [x, y] = baseCoords[selIdx]
-        const pr = (radii[selIdx] ?? POINT_RADIUS)
-        const sr = Math.max(SELECTED_RADIUS, pr + 2) / transform.k
-        ctx.beginPath()
-        ctx.arc(x, y, sr, 0, TWO_PI)
-        ctx.strokeStyle = '#f59e0b'
-        ctx.lineWidth   = 2.5 / transform.k
-        ctx.stroke()
+      ctx.restore()  // exit world space
+
+      // ── L. Sprites at high zoom (screen space) ──────────────────────────
+      if (k >= SPRITE_ZOOM_THRESHOLD) {
+        ctx.imageSmoothingEnabled = false
+        const screenSize = SPRITE_SCREEN_SIZE * (k / SPRITE_ZOOM_THRESHOLD)
+        const half = screenSize / 2
+        for (let i = 0; i < pokemon.length; i++) {
+          const [wx, wy] = baseCoords[i]
+          const sx = wx * k + transform.x
+          const sy = wy * k + transform.y
+          if (sx < -half * 2 || sx > width + half * 2 ||
+              sy < -half * 2 || sy > height + half * 2) continue
+
+          const url = pokemon[i].sprite
+          if (!url) continue
+
+          const cached = spriteCacheRef.current.get(i)
+          if (cached instanceof HTMLImageElement) {
+            ctx.globalAlpha = (matchSet !== null && !matchSet.has(i)) ? 0.12 : 1.0
+            ctx.drawImage(cached, sx - half, sy - half, screenSize, screenSize)
+            ctx.globalAlpha = 1.0
+          } else if (cached === undefined) {
+            loadSprite(i, url)
+          }
+        }
+        ctx.imageSmoothingEnabled = true
       }
 
-      // Hover ring (white)
-      if (hoveredIdx >= 0) {
-        const [x, y] = baseCoords[hoveredIdx]
-        const pr = (radii[hoveredIdx] ?? POINT_RADIUS)
-        const hr = Math.max(HOVER_RADIUS, pr + 1) / transform.k
-        ctx.beginPath()
-        ctx.arc(x, y, hr, 0, TWO_PI)
-        ctx.strokeStyle = '#ffffff'
-        ctx.lineWidth   = 2 / transform.k
-        ctx.stroke()
-      }
-
-      ctx.restore()
-
-      // Axis labels (screen space)
-      const screenAY = transform.k * axisYRef.current + transform.y
-      const screenAX = transform.k * axisXRef.current + transform.x
+      // ── M. Axis labels (screen space) ───────────────────────────────────
+      const screenAY = k * axisYRef.current + transform.y
+      const screenAX = k * axisXRef.current + transform.x
       ctx.save()
-      ctx.font      = '10px system-ui, sans-serif'
-      ctx.fillStyle = 'rgba(107, 114, 128, 0.55)'
+      ctx.font      = '10px "Pixelify Sans", monospace'
+      ctx.fillStyle = pixel
+        ? 'rgba(74, 106, 136, 0.65)'
+        : 'rgba(107, 114, 128, 0.55)'
       if (screenAY > 16 && screenAY < height - 12) {
         ctx.textAlign = 'left';  ctx.fillText(axisLabels.xLeft,  8,         screenAY - 4)
         ctx.textAlign = 'right'; ctx.fillText(axisLabels.xRight, width - 8, screenAY - 4)
@@ -415,7 +538,10 @@ export function PokemonMap({ data }: Props) {
       const [mx, my] = transform.invert([e.offsetX, e.offsetY] as [number, number])
       const idx = delaunay.find(mx, my)
       const [bx, by] = baseCoords[idx]
-      const dist = Math.hypot(e.offsetX - (transform.k * bx + transform.x), e.offsetY - (transform.k * by + transform.y))
+      const dist = Math.hypot(
+        e.offsetX - (transform.k * bx + transform.x),
+        e.offsetY - (transform.k * by + transform.y),
+      )
       if (idx !== hoveredIdx) { hoveredIdx = idx; scheduleDraw() }
       if (dist < HOVER_THRESHOLD) {
         setHover({ pokemon: pokemon[idx], mouseX: e.clientX, mouseY: e.clientY })
@@ -435,7 +561,10 @@ export function PokemonMap({ data }: Props) {
       const [mx, my] = transform.invert([e.offsetX, e.offsetY] as [number, number])
       const idx = delaunay.find(mx, my)
       const [bx, by] = baseCoords[idx]
-      const dist = Math.hypot(e.offsetX - (transform.k * bx + transform.x), e.offsetY - (transform.k * by + transform.y))
+      const dist = Math.hypot(
+        e.offsetX - (transform.k * bx + transform.x),
+        e.offsetY - (transform.k * by + transform.y),
+      )
       if (dist < HOVER_THRESHOLD) {
         const { selectedPokemon, setSelectedPokemon } = useStore.getState()
         const clicked = pokemon[idx]
@@ -462,7 +591,7 @@ export function PokemonMap({ data }: Props) {
   }, [data])
 
   return (
-    <div ref={containerRef} className="w-full h-full relative bg-gray-950">
+    <div ref={containerRef} className="w-full h-full relative bg-tk-bg">
       <canvas ref={canvasRef} className="block w-full h-full" />
       <MapControls
         onZoomIn={() => zoomInRef.current()}
@@ -470,10 +599,6 @@ export function PokemonMap({ data }: Props) {
         onFit={() => fitToViewRef.current()}
         panelOpen={selectedPokemon !== null}
       />
-      <div className="absolute bottom-4 left-4 z-10 pointer-events-none">
-        <span className="text-sm font-semibold text-gray-200">{matchCount.toLocaleString()}</span>
-        <span className="text-xs text-gray-600"> / {pokemon.length.toLocaleString()}</span>
-      </div>
       {hover && <HoverCard pokemon={hover.pokemon} mouseX={hover.mouseX} mouseY={hover.mouseY} />}
     </div>
   )

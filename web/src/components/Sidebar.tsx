@@ -16,6 +16,12 @@ const ALL_TYPES = [
 
 const GENERATIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+const REGIONS: Record<number, string> = {
+  1: 'Kanto', 2: 'Johto',  3: 'Hoenn', 4: 'Sinnoh',
+  5: 'Unova', 6: 'Kalos',  7: 'Alola', 8: 'Galar',
+  9: 'Paldea',
+}
+
 const CATEGORIES = [
   { id: 'normal',           label: 'Normal'       },
   { id: 'baby',             label: 'Baby'          },
@@ -90,10 +96,10 @@ function AccordionHeader({ title, open, onToggle }: { title: string; open: boole
   return (
     <button
       onClick={onToggle}
-      className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-widest hover:text-gray-300 transition-colors"
+      className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-tk-t4 uppercase tracking-widest hover:text-tk-t2 transition-colors font-pixel"
     >
       <span>{title}</span>
-      <span className="text-gray-700">{open ? '▲' : '▼'}</span>
+      <span className="text-tk-t5">{open ? '▲' : '▼'}</span>
     </button>
   )
 }
@@ -138,13 +144,13 @@ export function Sidebar({ pokemon }: SidebarProps) {
   }
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col border-r border-gray-800 bg-gray-950">
+    <aside className="w-56 shrink-0 flex flex-col border-r border-tk-ba bg-tk-bg">
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <>
           {/* Visual controls */}
-            <div className="p-3 border-b border-gray-800">
+            <div className="p-3 border-b border-tk-b1">
               <ColorBySelector pokemon={pokemon} />
             </div>
 
@@ -158,9 +164,9 @@ export function Sidebar({ pokemon }: SidebarProps) {
               onClear={() => setTypeFilter(new Set())}
             />
 
-            {/* Generation */}
-            <div className="border-b border-gray-800">
-              <AccordionHeader title="Generation" open={sectOpen.gens} onToggle={() => toggle('gens')} />
+            {/* Region / Generation */}
+            <div className="border-b border-tk-b1">
+              <AccordionHeader title="Region" open={sectOpen.gens} onToggle={() => toggle('gens')} />
               {sectOpen.gens && (
                 <div className="px-3 pb-3">
                   <div className="grid grid-cols-3 gap-1">
@@ -171,14 +177,15 @@ export function Sidebar({ pokemon }: SidebarProps) {
                       return (
                         <button key={gen} disabled={disabled}
                           onClick={() => !disabled && toggleGeneration(gen)}
-                          className={`flex flex-col items-center py-1.5 rounded text-xs transition-all ${
-                            disabled ? 'opacity-25 cursor-not-allowed bg-gray-800/30 border border-gray-800'
-                              : active ? 'bg-gray-700 border border-gray-500 text-white'
-                              : 'bg-gray-800/50 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200 cursor-pointer'
+                          title={`Gen ${gen} — ${REGIONS[gen]}`}
+                          className={`btn-pixel flex flex-col items-center py-1.5 text-xs transition-all ${
+                            disabled  ? 'opacity-25 cursor-not-allowed bg-tk-s2 border border-tk-b1'
+                            : active  ? 'btn-filter-active'
+                            : 'bg-tk-s2 border border-tk-b1 text-tk-t3 hover:border-tk-b2 hover:text-tk-t1 cursor-pointer'
                           }`}
                         >
-                          <span className="font-semibold leading-none">{gen}</span>
-                          <span className="text-[10px] text-gray-600 tabular-nums mt-0.5">{count}</span>
+                          <span className="font-semibold leading-none text-[10px]">{REGIONS[gen]}</span>
+                          <span className="text-[9px] tabular-nums mt-0.5 opacity-60">{count}</span>
                         </button>
                       )
                     })}
@@ -188,7 +195,7 @@ export function Sidebar({ pokemon }: SidebarProps) {
             </div>
 
             {/* Category */}
-            <div className="border-b border-gray-800">
+            <div className="border-b border-tk-b1">
               <AccordionHeader title="Category" open={sectOpen.cats} onToggle={() => toggle('cats')} />
               {sectOpen.cats && (
                 <div className="px-3 pb-3">
@@ -217,7 +224,7 @@ export function Sidebar({ pokemon }: SidebarProps) {
             />
 
             {/* Evo method */}
-            <div className="border-b border-gray-800">
+            <div className="border-b border-tk-b1">
               <AccordionHeader title="Evo method" open={sectOpen.evo} onToggle={() => toggle('evo')} />
               {sectOpen.evo && (
                 <div className="px-3 pb-3">
@@ -229,14 +236,14 @@ export function Sidebar({ pokemon }: SidebarProps) {
                       return (
                         <button key={id} disabled={disabled}
                           onClick={() => !disabled && toggleEvoTrigger(id)}
-                          className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-all ${
-                            disabled ? 'opacity-25 cursor-not-allowed bg-gray-800/30 border border-gray-800'
-                              : active ? 'bg-gray-700 border border-gray-500 text-white'
-                              : 'bg-gray-800/50 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200 cursor-pointer'
+                          className={`btn-pixel flex items-center justify-between px-2 py-1.5 text-xs transition-all ${
+                            disabled ? 'opacity-25 cursor-not-allowed bg-tk-s2 border border-tk-b1'
+                              : active ? 'btn-filter-active'
+                              : 'bg-tk-s2 border border-tk-b1 text-tk-t3 hover:border-tk-b2 hover:text-tk-t1 cursor-pointer'
                           }`}
                         >
                           <span className="truncate">{label}</span>
-                          <span className="text-[10px] text-gray-600 tabular-nums ml-1 shrink-0">{count}</span>
+                          <span className="text-[10px] tabular-nums ml-1 shrink-0 opacity-60">{count}</span>
                         </button>
                       )
                     })}
@@ -246,7 +253,7 @@ export function Sidebar({ pokemon }: SidebarProps) {
             </div>
 
             {/* Gender */}
-            <div className="border-b border-gray-800">
+            <div className="border-b border-tk-b1">
               <AccordionHeader title="Gender" open={sectOpen.gender} onToggle={() => toggle('gender')} />
               {sectOpen.gender && (
                 <div className="px-3 pb-3">
@@ -258,14 +265,14 @@ export function Sidebar({ pokemon }: SidebarProps) {
                       return (
                         <button key={id} disabled={disabled}
                           onClick={() => !disabled && toggleGender(id)}
-                          className={`flex items-center justify-between px-2 py-1.5 rounded text-xs transition-all ${
-                            disabled ? 'opacity-25 cursor-not-allowed bg-gray-800/30 border border-gray-800'
-                              : active ? 'bg-gray-700 border border-gray-500 text-white'
-                              : 'bg-gray-800/50 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200 cursor-pointer'
+                          className={`btn-pixel flex items-center justify-between px-2 py-1.5 text-xs transition-all ${
+                            disabled ? 'opacity-25 cursor-not-allowed bg-tk-s2 border border-tk-b1'
+                              : active ? 'btn-filter-active'
+                              : 'bg-tk-s2 border border-tk-b1 text-tk-t3 hover:border-tk-b2 hover:text-tk-t1 cursor-pointer'
                           }`}
                         >
                           <span className="truncate">{label}</span>
-                          <span className="text-[10px] text-gray-600 tabular-nums ml-1 shrink-0">{count}</span>
+                          <span className="text-[10px] tabular-nums ml-1 shrink-0 opacity-60">{count}</span>
                         </button>
                       )
                     })}
@@ -275,7 +282,7 @@ export function Sidebar({ pokemon }: SidebarProps) {
             </div>
 
             {/* Hidden ability */}
-            <div className="border-b border-gray-800">
+            <div className="border-b border-tk-b1">
               <AccordionHeader title="Hidden ability" open={sectOpen.hidden} onToggle={() => toggle('hidden')} />
               {sectOpen.hidden && (
                 <div className="px-3 pb-3 flex gap-1">
@@ -288,14 +295,14 @@ export function Sidebar({ pokemon }: SidebarProps) {
                     return (
                       <button key={String(value)}
                         onClick={() => setHasHiddenAbility(value)}
-                        className={`flex-1 flex flex-col items-center py-1.5 rounded text-xs transition-all ${
+                        className={`btn-pixel flex-1 flex flex-col items-center py-1.5 text-xs transition-all ${
                           active
-                            ? 'bg-gray-700 border border-gray-500 text-white'
-                            : 'bg-gray-800/50 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200 cursor-pointer'
+                            ? 'btn-filter-active'
+                            : 'bg-tk-s2 border border-tk-b1 text-tk-t3 hover:border-tk-b2 hover:text-tk-t1 cursor-pointer'
                         }`}
                       >
                         <span>{label}</span>
-                        <span className="text-[10px] text-gray-600 tabular-nums mt-0.5">{count}</span>
+                        <span className="text-[10px] tabular-nums mt-0.5 opacity-60">{count}</span>
                       </button>
                     )
                   })}
@@ -307,13 +314,14 @@ export function Sidebar({ pokemon }: SidebarProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t border-gray-800 text-xs flex items-center justify-between shrink-0">
-        <span>
-          <span className="text-gray-200 font-semibold">{matchCount.toLocaleString()}</span>
-          <span className="text-gray-600"> / {pokemon.length.toLocaleString()}</span>
+      <div className="px-3 py-2 border-t border-tk-b1 text-[10px] flex items-center justify-between shrink-0">
+        <span className="font-pixel text-tk-t4">
+          REGISTERED{' '}
+          <span className="text-tk-t1 font-semibold">{matchCount.toLocaleString()}</span>
+          <span className="text-tk-t5"> / {pokemon.length.toLocaleString()}</span>
         </span>
         {activeCount > 0 && (
-          <button onClick={clearFilters} className="text-gray-600 hover:text-gray-400 transition-colors">
+          <button onClick={clearFilters} className="text-tk-t4 hover:text-tk-t3 transition-colors">
             Clear
           </button>
         )}
@@ -339,7 +347,7 @@ interface TypeSectionProps {
 function TypeSection({ label = 'Type', filterState, counts, open, onToggle, onToggleType, selectedSet, onClear }: TypeSectionProps) {
   const selected = selectedSet ?? filterState.types
   return (
-    <div className="border-b border-gray-800">
+    <div className="border-b border-tk-b1">
       <AccordionHeader title={label} open={open} onToggle={onToggle} />
       {open && (
         <div className="px-3 pb-3">
@@ -357,9 +365,9 @@ function TypeSection({ label = 'Type', filterState, counts, open, onToggle, onTo
                     disabled ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer'
                   }`}
                   style={{
-                    backgroundColor: active ? color + '1e' : 'transparent',
-                    border:          `1px solid ${active ? color + '55' : '#374151'}`,
-                    color:           active ? color : '#9ca3af',
+                    backgroundColor: active ? color + '22' : 'transparent',
+                    border:          `1px solid ${active ? color + '88' : 'var(--color-b1)'}`,
+                    color:           active ? color : 'var(--color-t3)',
                   }}
                 >
                   <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -370,7 +378,7 @@ function TypeSection({ label = 'Type', filterState, counts, open, onToggle, onTo
             })}
           </div>
           {selected.size > 0 && (
-            <button onClick={onClear} className="mt-1.5 text-[10px] text-gray-600 hover:text-gray-400 transition-colors">
+            <button onClick={onClear} className="mt-1.5 text-[10px] text-tk-t4 hover:text-tk-t3 transition-colors">
               Clear
             </button>
           )}

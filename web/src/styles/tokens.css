@@ -1,0 +1,219 @@
+/* ── Clean theme (default — preserves current appearance) ─────────────────── */
+:root,
+[data-theme="clean"] {
+  --color-bg:      #030712;
+  --color-surface: #111827;
+  --color-s2:      #1f2937;
+  --color-s3:      #374151;
+
+  --color-b1: #1f2937;
+  --color-b2: #374151;
+  --color-ba: #1f2937;   /* same as b1 in clean — no red accent */
+
+  --color-t1: #f9fafb;
+  --color-t2: #d1d5db;
+  --color-t3: #9ca3af;
+  --color-t4: #6b7280;
+  --color-t5: #374151;
+
+  --color-accent:  #3b82f6;
+  --color-accent2: #60a5fa;
+
+  --color-surface-overlay: rgba(17, 24, 39, 0.95);
+
+  --font-pixel: inherit;
+
+  --shadow-panel: none;
+  --shadow-btn:   none;
+}
+
+/* ── Pixel theme ──────────────────────────────────────────────────────────── */
+[data-theme="pixel"] {
+  --color-bg:      #0f1923;
+  --color-surface: #152232;
+  --color-s2:      #1e3248;
+  --color-s3:      #28415c;
+
+  --color-b1: #2e4a6a;
+  --color-b2: #3d6080;
+  --color-ba: #cc2233;   /* Pokédex red — structural frame only */
+
+  --color-t1: #e8f0ff;
+  --color-t2: #b0c8e8;
+  --color-t3: #7a9ab8;
+  --color-t4: #4a6a88;
+  --color-t5: #2a4060;
+
+  --color-accent:  #f8d030;
+  --color-accent2: #ffea50;
+
+  --color-surface-overlay: #152232;   /* solid — no blur in pixel theme */
+
+  --font-pixel: 'Pixelify Sans', monospace;
+
+  --shadow-panel: 2px 2px 0 #060e16, -1px -1px 0 #2a446a;
+  --shadow-btn:   2px 2px 0 #060e16;
+}
+
+/* ── Pixel global overrides ───────────────────────────────────────────────── */
+
+/* Remove all rounding */
+[data-theme="pixel"] .rounded,
+[data-theme="pixel"] .rounded-sm,
+[data-theme="pixel"] .rounded-md,
+[data-theme="pixel"] .rounded-lg,
+[data-theme="pixel"] .rounded-xl,
+[data-theme="pixel"] .rounded-2xl,
+[data-theme="pixel"] .rounded-full {
+  border-radius: 0;
+}
+
+/* No blur */
+[data-theme="pixel"] .backdrop-blur-sm {
+  backdrop-filter: none;
+}
+
+/* Relief shadow on structural containers */
+[data-theme="pixel"] header,
+[data-theme="pixel"] aside,
+[data-theme="pixel"] .px-relief {
+  box-shadow: var(--shadow-panel);
+}
+
+/* Header frame: thicker red bottom border */
+[data-theme="pixel"] header {
+  border-bottom-width: 2px;
+}
+
+/* Sidebar frame: thicker red right border */
+[data-theme="pixel"] aside {
+  border-right-width: 2px;
+}
+
+/* ── Pixel font on headings and utility class */
+[data-theme="pixel"] h1,
+[data-theme="pixel"] h2 {
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+.font-pixel {
+  font-family: var(--font-pixel);
+}
+
+[data-theme="pixel"] .font-pixel {
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+/* ── Phase B: Header Pokédex top-stripe ──────────────────────────────────── */
+
+[data-theme="pixel"] header {
+  position: relative;
+}
+
+[data-theme="pixel"] header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--color-ba);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Phase B: Active filter button (both themes) ─────────────────────────── */
+
+.btn-filter-active {
+  background-color: var(--color-s3);
+  border: 1px solid var(--color-b2);
+  color: var(--color-t1);
+}
+
+[data-theme="pixel"] .btn-filter-active {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent2);
+  color: #0f1923;
+  font-weight: 700;
+  box-shadow: 2px 2px 0 #060e16;
+}
+
+/* ── Phase B: Pixel button pressed state ─────────────────────────────────── */
+
+[data-theme="pixel"] .btn-pixel:not(:disabled):active {
+  transform: translate(1px, 1px);
+  box-shadow: none !important;
+}
+
+
+/* ── Phase C: Sprite "screen" frame ─────────────────────────────────────── */
+
+.sprite-screen {
+  background-color: var(--color-s2);
+  border: 1px solid var(--color-b1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="pixel"] .sprite-screen {
+  background-color: #091420;
+  border: 2px solid var(--color-b2);
+  box-shadow:
+    inset 2px 2px 0 #060e16,
+    inset -1px -1px 0 #1a3050,
+    2px 2px 0 #060e16;
+}
+
+/* ── Phase C: Pixelated section divider ─────────────────────────────────── */
+
+.px-divider {
+  height: 1px;
+  border: none;
+  background-color: var(--color-b1);
+  margin: 10px 0;
+}
+
+[data-theme="pixel"] .px-divider {
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--color-b2) 0px,
+    var(--color-b2) 4px,
+    transparent    4px,
+    transparent    8px
+  );
+}
+
+/* ── Phase E: Loader — Pokéball spin (8 discrete frames) ────────────────── */
+
+@keyframes pokeball-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.pokeball-spin {
+  animation: pokeball-spin 1s steps(8, end) infinite;
+}
+
+/* ── Phase E: Focus rings ────────────────────────────────────────────────── */
+
+button:focus-visible,
+select:focus-visible,
+a:focus-visible,
+input:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+[data-theme="pixel"] button:focus-visible,
+[data-theme="pixel"] select:focus-visible,
+[data-theme="pixel"] a:focus-visible,
+[data-theme="pixel"] input:focus-visible,
+[data-theme="pixel"] [role="button"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-accent);
+}
+

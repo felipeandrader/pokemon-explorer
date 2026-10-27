@@ -1,6 +1,52 @@
+@import './styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Token utility overrides ────────────────────────────────────────────────
+   Tailwind wraps CSS-var colors in rgb(var(...) / opacity), which breaks with
+   hex values. These unlayered rules win over @layer utilities and fix it.      */
+
+/* Backgrounds */
+.bg-tk-bg      { background-color: var(--color-bg); }
+.bg-tk-surface { background-color: var(--color-surface); }
+.bg-tk-s2      { background-color: var(--color-s2); }
+.bg-tk-s3      { background-color: var(--color-s3); }
+.bg-tk-overlay { background-color: var(--color-surface-overlay); }
+
+/* Borders */
+.border-tk-b1 { border-color: var(--color-b1); }
+.border-tk-b2 { border-color: var(--color-b2); }
+.border-tk-ba { border-color: var(--color-ba); }
+
+/* Text */
+.text-tk-t1    { color: var(--color-t1); }
+.text-tk-t2    { color: var(--color-t2); }
+.text-tk-t3    { color: var(--color-t3); }
+.text-tk-t4    { color: var(--color-t4); }
+.text-tk-t5    { color: var(--color-t5); }
+.text-tk-accent  { color: var(--color-accent); }
+.text-tk-accent2 { color: var(--color-accent2); }
+
+/* Hover */
+.hover\:bg-tk-s2:hover     { background-color: var(--color-s2); }
+.hover\:bg-tk-s3:hover     { background-color: var(--color-s3); }
+.hover\:border-tk-b2:hover { border-color: var(--color-b2); }
+.hover\:border-tk-ba:hover { border-color: var(--color-ba); }
+.hover\:text-tk-t1:hover   { color: var(--color-t1); }
+.hover\:text-tk-t2:hover   { color: var(--color-t2); }
+.hover\:text-tk-t3:hover   { color: var(--color-t3); }
+
+/* Focus */
+.focus\:border-tk-b2:focus { border-color: var(--color-b2); }
+.focus\:bg-tk-s2:focus     { background-color: var(--color-s2); }
+
+/* Group-hover */
+.group:hover .group-hover\:text-tk-t2 { color: var(--color-t2); }
+
+/* Font pixel utility */
+.font-pixel { font-family: var(--font-pixel); }
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -12,6 +58,6 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #111827;
-  color: #f9fafb;
+  background: var(--color-bg);
+  color: var(--color-t1);
 }

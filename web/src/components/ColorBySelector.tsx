@@ -76,10 +76,10 @@ function SetEditor({ label, accent, filterState, onChange }: SetEditorProps) {
           {/* Type */}
           <button
             onClick={() => setOpenSect(s => ({ ...s, types: !s.types }))}
-            className="flex items-center justify-between w-full px-2.5 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-widest hover:text-gray-400"
+            className="flex items-center justify-between w-full px-2.5 py-1.5 text-[10px] font-semibold text-tk-t4 uppercase tracking-widest hover:text-tk-t3"
           >
             <span>Type{filterState.types.size > 0 && ` (${filterState.types.size})`}</span>
-            <span className="text-gray-700">{openSect.types ? '▲' : '▼'}</span>
+            <span className="text-tk-t5">{openSect.types ? '▲' : '▼'}</span>
           </button>
           {openSect.types && (
             <div className="px-2 grid grid-cols-2 gap-0.5 pb-1">
@@ -106,10 +106,10 @@ function SetEditor({ label, accent, filterState, onChange }: SetEditorProps) {
           {/* Generation */}
           <button
             onClick={() => setOpenSect(s => ({ ...s, gens: !s.gens }))}
-            className="flex items-center justify-between w-full px-2.5 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-widest hover:text-gray-400"
+            className="flex items-center justify-between w-full px-2.5 py-1.5 text-[10px] font-semibold text-tk-t4 uppercase tracking-widest hover:text-tk-t3"
           >
             <span>Generation{filterState.generations.size > 0 && ` (${filterState.generations.size})`}</span>
-            <span className="text-gray-700">{openSect.gens ? '▲' : '▼'}</span>
+            <span className="text-tk-t5">{openSect.gens ? '▲' : '▼'}</span>
           </button>
           {openSect.gens && (
             <div className="px-2 flex flex-wrap gap-0.5 pb-1">
@@ -121,7 +121,7 @@ function SetEditor({ label, accent, filterState, onChange }: SetEditorProps) {
                     style={{
                       backgroundColor: active ? accent + '33' : '#1F2937',
                       border: `1px solid ${active ? accent + '66' : '#374151'}`,
-                      color:  active ? accent : '#6b7280',
+                      color:  active ? accent : 'var(--color-t4)',
                     }}
                   >
                     {g}
@@ -134,10 +134,10 @@ function SetEditor({ label, accent, filterState, onChange }: SetEditorProps) {
           {/* Category */}
           <button
             onClick={() => setOpenSect(s => ({ ...s, cats: !s.cats }))}
-            className="flex items-center justify-between w-full px-2.5 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-widest hover:text-gray-400"
+            className="flex items-center justify-between w-full px-2.5 py-1.5 text-[10px] font-semibold text-tk-t4 uppercase tracking-widest hover:text-tk-t3"
           >
             <span>Category{filterState.categories.size > 0 && ` (${filterState.categories.size})`}</span>
-            <span className="text-gray-700">{openSect.cats ? '▲' : '▼'}</span>
+            <span className="text-tk-t5">{openSect.cats ? '▲' : '▼'}</span>
           </button>
           {openSect.cats && (
             <div className="px-2 flex flex-col gap-0.5 pb-1">
@@ -149,7 +149,7 @@ function SetEditor({ label, accent, filterState, onChange }: SetEditorProps) {
                     style={{
                       backgroundColor: active ? accent + '22' : 'transparent',
                       border: `1px solid ${active ? accent + '55' : '#374151'}`,
-                      color:  active ? accent : '#6b7280',
+                      color:  active ? accent : 'var(--color-t4)',
                     }}
                   >
                     {catLabel}
@@ -209,10 +209,10 @@ export function ColorBySelector({ pokemon }: Props) {
       {/* ── Color by ── */}
       <div>
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-xs text-gray-500 uppercase tracking-widest flex-1">Color by</span>
+          <span className="text-xs text-tk-t4 uppercase tracking-widest flex-1 font-pixel">Color by</span>
           {!isContinuous && !isAb && (
             <button onClick={() => setLegendOpen(v => !v)}
-              className="text-gray-600 hover:text-gray-400 transition-colors text-xs"
+              className="text-tk-t4 hover:text-tk-t3 transition-colors text-xs"
               title={legendOpen ? 'Hide legend' : 'Show legend'}
             >
               {legendOpen ? '▲' : '▼'}
@@ -222,17 +222,18 @@ export function ColorBySelector({ pokemon }: Props) {
         <select
           value={colorMode}
           onChange={e => setColorMode(e.target.value as ColorMode)}
-          className="w-full bg-gray-800/60 border border-gray-700 text-gray-200 text-xs rounded px-2 py-1.5 outline-none cursor-pointer focus:border-gray-500"
+          className="w-full bg-tk-s2 border border-tk-b1 text-tk-t1 text-xs rounded px-2 py-1.5 outline-none cursor-pointer focus:border-tk-b2"
+          style={{ backgroundColor: 'var(--color-s2)', color: 'var(--color-t1)' }}
         >
-          <optgroup label="Categorical" className="bg-gray-900">
-            <option value="type"       className="bg-gray-900">Type</option>
-            <option value="generation" className="bg-gray-900">Generation</option>
-            <option value="category"   className="bg-gray-900">Category</option>
-            <option value="ab"         className="bg-gray-900">A/B Compare</option>
+          <optgroup label="Categorical" className="bg-tk-surface">
+            <option value="type"       className="bg-tk-surface">Type</option>
+            <option value="generation" className="bg-tk-surface">Generation</option>
+            <option value="category"   className="bg-tk-surface">Category</option>
+            <option value="ab"         className="bg-tk-surface">A/B Compare</option>
           </optgroup>
-          <optgroup label="Continuous" className="bg-gray-900">
-            <option value="bst"   className="bg-gray-900">BST (power)</option>
-            <option value="speed" className="bg-gray-900">Speed</option>
+          <optgroup label="Continuous" className="bg-tk-surface">
+            <option value="bst"   className="bg-tk-surface">BST (power)</option>
+            <option value="speed" className="bg-tk-surface">Speed</option>
           </optgroup>
         </select>
 
@@ -248,7 +249,7 @@ export function ColorBySelector({ pokemon }: Props) {
               ] as const).map(({ color, label }) => (
                 <span key={label} className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />
-                  <span className="text-gray-500">{label}</span>
+                  <span className="text-tk-t4">{label}</span>
                 </span>
               ))}
             </div>
@@ -268,22 +269,22 @@ export function ColorBySelector({ pokemon }: Props) {
 
             {/* A/B counts */}
             {abCounts && (abCounts.a !== null || abCounts.b !== null) && (
-              <div className="text-xs space-y-0.5 pt-1.5 border-t border-gray-800">
+              <div className="text-xs space-y-0.5 pt-1.5 border-t border-tk-b1">
                 {abCounts.a !== null && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Set A</span>
+                    <span className="text-tk-t4">Set A</span>
                     <span style={{ color: AB_COLORS.aOnly }} className="tabular-nums font-medium">{abCounts.a}</span>
                   </div>
                 )}
                 {abCounts.b !== null && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Set B</span>
+                    <span className="text-tk-t4">Set B</span>
                     <span style={{ color: AB_COLORS.bOnly }} className="tabular-nums font-medium">{abCounts.b}</span>
                   </div>
                 )}
                 {abCounts.ab !== null && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">A ∩ B</span>
+                    <span className="text-tk-t4">A ∩ B</span>
                     <span style={{ color: AB_COLORS.both }} className="tabular-nums font-medium">{abCounts.ab}</span>
                   </div>
                 )}
@@ -297,7 +298,7 @@ export function ColorBySelector({ pokemon }: Props) {
           isContinuous ? (
             <div className="mt-2">
               <div className="h-3 rounded" style={{ background: `linear-gradient(to right, ${(legend as { stops: string[] }).stops.join(', ')})` }} />
-              <div className="flex justify-between mt-1 text-[10px] text-gray-500">
+              <div className="flex justify-between mt-1 text-[10px] text-tk-t4">
                 <span>{(legend as { minLabel: string }).minLabel}</span>
                 <span>{(legend as { maxLabel: string }).maxLabel}</span>
               </div>
@@ -309,7 +310,7 @@ export function ColorBySelector({ pokemon }: Props) {
                   {(legend as { items: { label: string; color: string }[] }).items.map(({ label, color }) => (
                     <div key={label} className="flex items-center gap-1.5 min-w-0">
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="text-xs text-gray-400 capitalize truncate">{label}</span>
+                      <span className="text-xs text-tk-t3 capitalize truncate">{label}</span>
                     </div>
                   ))}
                 </div>
@@ -318,7 +319,7 @@ export function ColorBySelector({ pokemon }: Props) {
                   {(legend as { items: { label: string; color: string }[] }).items.map(({ label, color }) => (
                     <div key={label} className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="text-xs text-gray-400 capitalize">{label}</span>
+                      <span className="text-xs text-tk-t3 capitalize">{label}</span>
                     </div>
                   ))}
                 </div>
@@ -330,14 +331,14 @@ export function ColorBySelector({ pokemon }: Props) {
 
       {/* ── Size by ── */}
       <div>
-        <span className="text-xs text-gray-500 uppercase tracking-widest block mb-1.5">Size by</span>
+        <span className="text-xs text-tk-t4 uppercase tracking-widest block mb-1.5 font-pixel">Size by</span>
         <div className="flex gap-1">
           {(['none', 'bst', 'speed'] as SizeMode[]).map(m => (
             <button key={m} onClick={() => setSizeMode(m)}
               className={`flex-1 py-1 rounded text-xs transition-colors ${
                 sizeMode === m
-                  ? 'bg-gray-700 border border-gray-500 text-white'
-                  : 'bg-gray-800/50 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200'
+                  ? 'bg-tk-s3 border border-tk-b2 text-tk-t1'
+                  : 'bg-tk-s2 border border-tk-b1 text-tk-t3 hover:border-tk-b2 hover:text-tk-t1'
               }`}
             >
               {m === 'none' ? 'None' : m === 'bst' ? 'BST' : 'Speed'}
@@ -351,11 +352,11 @@ export function ColorBySelector({ pokemon }: Props) {
         <label className="flex items-center gap-2 cursor-pointer group">
           <div
             onClick={() => setShowEvoLines(!showEvoLines)}
-            className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${showEvoLines ? 'bg-blue-600' : 'bg-gray-700'}`}
+            className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${showEvoLines ? 'bg-blue-600' : 'bg-tk-s3'}`}
           >
             <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${showEvoLines ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </div>
-          <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors select-none">
+          <span className="text-xs text-tk-t3 group-hover:text-tk-t2 transition-colors select-none">
             Evolution lines
           </span>
         </label>

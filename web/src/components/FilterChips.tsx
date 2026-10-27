@@ -2,8 +2,9 @@ import { useStore } from '../store/useStore'
 import { TYPE_COLORS } from '../constants/typeColors'
 
 const GEN_LABELS: Record<number, string> = {
-  1:'Gen I', 2:'Gen II', 3:'Gen III', 4:'Gen IV', 5:'Gen V',
-  6:'Gen VI', 7:'Gen VII', 8:'Gen VIII', 9:'Gen IX',
+  1: 'Kanto', 2: 'Johto',  3: 'Hoenn', 4: 'Sinnoh',
+  5: 'Unova', 6: 'Kalos',  7: 'Alola', 8: 'Galar',
+  9: 'Paldea',
 }
 
 const CAT_LABELS: Record<string, string> = {
@@ -39,9 +40,9 @@ export function FilterChips() {
   if (total === 0) return null
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap px-3 py-1.5 border-b border-gray-800 bg-gray-950 shrink-0">
+    <div className="flex items-center gap-1.5 flex-wrap px-3 py-1.5 border-b border-tk-b1 bg-tk-bg shrink-0">
 
-      {/* Own type chips */}
+      {/* Type chips */}
       {[...filterState.types].map(type => {
         const color = TYPE_COLORS[type] ?? '#888'
         return (
@@ -57,7 +58,7 @@ export function FilterChips() {
       {/* Gen chips */}
       {[...filterState.generations].sort((a, b) => a - b).map(gen => (
         <button key={gen} onClick={() => toggleGeneration(gen)}
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-gray-800 border border-gray-600 text-gray-300 hover:border-gray-500"
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-tk-s2 border border-tk-b2 text-tk-t2 hover:border-tk-b2"
         >
           {GEN_LABELS[gen] ?? `Gen ${gen}`} <span className="opacity-60 text-[10px]">×</span>
         </button>
@@ -115,7 +116,7 @@ export function FilterChips() {
 
       {/* Clear all */}
       {total > 1 && (
-        <button onClick={clearFilters} className="ml-1 text-[10px] text-gray-600 hover:text-gray-400 transition-colors">
+        <button onClick={clearFilters} className="ml-1 text-[10px] text-tk-t4 hover:text-tk-t3 transition-colors">
           Clear all
         </button>
       )}

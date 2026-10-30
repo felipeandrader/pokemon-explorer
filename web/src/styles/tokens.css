@@ -1,33 +1,5 @@
-/* ── Clean theme (default — preserves current appearance) ─────────────────── */
-:root,
-[data-theme="clean"] {
-  --color-bg:      #030712;
-  --color-surface: #111827;
-  --color-s2:      #1f2937;
-  --color-s3:      #374151;
-
-  --color-b1: #1f2937;
-  --color-b2: #374151;
-  --color-ba: #1f2937;   /* same as b1 in clean — no red accent */
-
-  --color-t1: #f9fafb;
-  --color-t2: #d1d5db;
-  --color-t3: #9ca3af;
-  --color-t4: #6b7280;
-  --color-t5: #374151;
-
-  --color-accent:  #3b82f6;
-  --color-accent2: #60a5fa;
-
-  --color-surface-overlay: rgba(17, 24, 39, 0.95);
-
-  --font-pixel: inherit;
-
-  --shadow-panel: none;
-  --shadow-btn:   none;
-}
-
 /* ── Pixel theme ──────────────────────────────────────────────────────────── */
+:root,
 [data-theme="pixel"] {
   --color-bg:      #0f1923;
   --color-surface: #152232;
@@ -123,15 +95,9 @@
   z-index: 1;
 }
 
-/* ── Phase B: Active filter button (both themes) ─────────────────────────── */
+/* ── Active filter button ────────────────────────────────────────────────── */
 
 .btn-filter-active {
-  background-color: var(--color-s3);
-  border: 1px solid var(--color-b2);
-  color: var(--color-t1);
-}
-
-[data-theme="pixel"] .btn-filter-active {
   background-color: var(--color-accent);
   border-color: var(--color-accent2);
   color: #0f1923;

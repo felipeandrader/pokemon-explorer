@@ -4,13 +4,10 @@ import { PokemonMap } from './components/PokemonMap'
 import { Sidebar } from './components/Sidebar'
 import { FilterChips } from './components/FilterChips'
 import { PokemonDetailPanel } from './components/PokemonDetailPanel'
-import { ThemeToggle } from './components/ThemeToggle'
-import { useTheme } from './hooks/useTheme'
 
 export default function App() {
   const [data,  setData]  = useState<PokemonData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { theme, toggle } = useTheme()
 
   useEffect(() => {
     fetch('/data/pokemon.json')
@@ -64,11 +61,8 @@ export default function App() {
         <span className="text-xs text-tk-t4">
           {data.pokemon.length} Pokémon
         </span>
-        <span className="ml-auto flex items-center gap-3">
-          <span className="text-xs text-tk-t5 tabular-nums">
-            PC1 {pc1}%&nbsp;&nbsp;PC2 {pc2}%
-          </span>
-          <ThemeToggle theme={theme} onToggle={toggle} />
+        <span className="ml-auto text-xs text-tk-t5 tabular-nums">
+          PC1 {pc1}%&nbsp;&nbsp;PC2 {pc2}%
         </span>
       </header>
 

@@ -8,6 +8,7 @@ import { HoverCard } from './HoverCard'
 import { MapControls } from './MapControls'
 import { useStore, type SizeMode } from '../store/useStore'
 import { type ColorMode, buildColorGroups, buildAbColorGroups } from '../constants/colorModes'
+import { spriteUrl } from '../utils/spriteUrl'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -462,9 +463,7 @@ export function PokemonMap({ data }: Props) {
           if (sx < -half * 2 || sx > width + half * 2 ||
               sy < -half * 2 || sy > height + half * 2) continue
 
-          const url = pokemon[i].sprite
-          if (!url) continue
-
+          const url = spriteUrl(pokemon[i].id)
           const cached = spriteCacheRef.current.get(i)
           if (cached instanceof HTMLImageElement) {
             ctx.globalAlpha = (matchSet !== null && !matchSet.has(i)) ? 0.12 : 1.0

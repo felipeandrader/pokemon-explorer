@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useStore } from '../store/useStore'
 import { TYPE_COLORS } from '../constants/typeColors'
 import type { Pokemon } from '../types'
+import { spriteUrl } from '../utils/spriteUrl'
 
 // ── Contrast helper ───────────────────────────────────────────────────────
 
@@ -187,17 +188,13 @@ function PanelContent({ pokemon, onClose }: { pokemon: Pokemon; onClose: () => v
 
         {/* Sprite screen */}
         <div className="sprite-screen w-full py-5 mb-3">
-          {pokemon.sprite ? (
-            <img
-              src={pokemon.sprite}
-              alt={name}
-              width={192}
-              height={192}
-              style={{ imageRendering: 'pixelated', display: 'block' }}
-            />
-          ) : (
-            <div className="w-48 h-48 flex items-center justify-center text-tk-t5 font-pixel text-xs">?</div>
-          )}
+          <img
+            src={spriteUrl(pokemon.id)}
+            alt={name}
+            width={192}
+            height={192}
+            style={{ imageRendering: 'pixelated', display: 'block' }}
+          />
         </div>
 
         {/* Name, gen, types */}

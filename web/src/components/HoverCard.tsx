@@ -1,5 +1,6 @@
 import type { Pokemon } from '../types'
 import { TYPE_COLORS } from '../constants/typeColors'
+import { spriteUrl } from '../utils/spriteUrl'
 
 interface HoverCardProps {
   pokemon: Pokemon
@@ -44,17 +45,13 @@ export function HoverCard({ pokemon, mouseX, mouseY }: HoverCardProps) {
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
-        {pokemon.sprite ? (
-          <img
-            src={pokemon.sprite}
-            alt={pokemon.name}
-            width={48}
-            height={48}
-            style={{ imageRendering: 'pixelated' }}
-          />
-        ) : (
-          <div className="w-12 h-12 bg-tk-s2" />
-        )}
+        <img
+          src={spriteUrl(pokemon.id)}
+          alt={pokemon.name}
+          width={48}
+          height={48}
+          style={{ imageRendering: 'pixelated' }}
+        />
         <div className="min-w-0">
           <div className="text-tk-t1 font-semibold text-sm leading-tight truncate">
             {formatName(pokemon.name)}

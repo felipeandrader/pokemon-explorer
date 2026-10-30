@@ -32,10 +32,7 @@ export type PokemonGender = 'mixed' | 'male_only' | 'female_only' | 'genderless'
 
 export interface Pokemon {
   id: number
-  species_id: number
   name: string
-  form: string | null
-  is_default_form: boolean
   types: string[]
   generation: number
   stats: PokemonStats
@@ -62,9 +59,7 @@ export interface Pokemon {
   shape: string | null
   habitat: string | null
   growth_rate: string | null
-  sprite: string
   pca: [number, number]
-  umap: null
 }
 
 export interface PcaMeta {

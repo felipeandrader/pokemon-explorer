@@ -45,10 +45,7 @@ def export(pca_meta: dict, df: pd.DataFrame) -> None:
 
         pokemon_list.append({
             "id":              int(row["id"]),
-            "species_id":      int(row["species_id"]),
             "name":            row["name"],
-            "form":            row["form"],
-            "is_default_form": bool(row["is_default_form"]),
             "types":           types,
             "generation":      int(row["generation"]),
             "stats": {
@@ -89,9 +86,7 @@ def export(pca_meta: dict, df: pd.DataFrame) -> None:
             "shape":       _str_or_none(row.get("shape")),
             "habitat":     _str_or_none(row.get("habitat")),
             "growth_rate": _str_or_none(row.get("growth_rate")),
-            "sprite":      _str_or_none(row.get("sprite")) or "",
             "pca":  [_float_round(row["pca_x"]), _float_round(row["pca_y"])],
-            "umap": None,
         })
 
     output = {

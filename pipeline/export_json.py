@@ -87,6 +87,12 @@ def export(pca_meta: dict, df: pd.DataFrame) -> None:
             "habitat":     _str_or_none(row.get("habitat")),
             "growth_rate": _str_or_none(row.get("growth_rate")),
             "pca":  [_float_round(row["pca_x"]), _float_round(row["pca_y"])],
+            "umap": (
+                [_float_round(row["umap_x"]), _float_round(row["umap_y"])]
+                if row.get("umap_x") is not None
+                   and not (isinstance(row.get("umap_x"), float) and math.isnan(row.get("umap_x")))
+                else None
+            ),
         })
 
     output = {

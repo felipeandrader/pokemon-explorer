@@ -42,6 +42,23 @@ def fit_and_project(df: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     df["pca_x"] = coords_norm[:, 0]
     df["pca_y"] = coords_norm[:, 1]
 
+    df["umap_x"] = None
+    df["umap_y"] = None
+    try:
+        from umap import UMAP
+        umap_model = UMAP(n_components=2, random_state=42, n_neighbors=15, min_dist=0.1)
+        umap_coords = umap_model.fit_transform(X_fit_scaled)
+        umap_mins   = umap_coords.min(axis=0)
+        umap_ranges = umap_coords.max(axis=0) - umap_mins
+        umap_norm   = 2.0 * (umap_coords - umap_mins) / umap_ranges - 1.0
+        umap_all    = np.full((len(df), 2), np.nan)
+        umap_all[mask] = umap_norm
+        df["umap_x"] = umap_all[:, 0]
+        df["umap_y"] = umap_all[:, 1]
+        print(f"UMAP computed for {mask.sum()} default forms.")
+    except ImportError:
+        print("umap-learn not installed — skipping UMAP. Run: pip install umap-learn")
+
     _report_loadings(pca)
 
     meta = {

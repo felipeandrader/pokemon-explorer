@@ -18,9 +18,10 @@ const SIZE_MAX_PX   = 7
 const HOVER_HALF    = 7
 const SELECTED_HALF = 9
 const HOVER_THRESHOLD     = 20
+const STACK_THRESHOLD     = POINT_HALF * 2    // canvas-px radius for overlap grouping
 const PADDING             = 48
 const TWO_PI              = Math.PI * 2
-const SPRITE_ZOOM_THRESHOLD = 6
+const SPRITE_ZOOM_THRESHOLD = 4
 const SPRITE_SCREEN_SIZE    = 56
 const GRID_STEP             = 40   // world units
 
@@ -157,21 +158,25 @@ export function PokemonMap({ data }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const scheduleDrawRef  = useRef<(() => void) | null>(null)
-  const matchingSetRef   = useRef<Set<number> | null>(null)
-  const colorGroupsRef   = useRef<Map<string, number[]>>(new Map())
-  const colorModeRef     = useRef<ColorMode>('type')
-  const activeFilterARef = useRef<((p: Pokemon) => boolean) | null>(null)
-  const activeFilterBRef = useRef<((p: Pokemon) => boolean) | null>(null)
-  const axisXRef         = useRef(0)
-  const axisYRef         = useRef(0)
-  const fitToViewRef     = useRef<() => void>(() => {})
-  const zoomInRef        = useRef<() => void>(() => {})
-  const zoomOutRef       = useRef<() => void>(() => {})
-  const selectedIdxRef   = useRef(-1)
-  const radiiRef         = useRef<Float32Array>(new Float32Array())
-  const showEvoLinesRef  = useRef(false)
-  const spriteCacheRef   = useRef<Map<number, SpriteState>>(new Map())
+  const scheduleDrawRef    = useRef<(() => void) | null>(null)
+  const matchingSetRef     = useRef<Set<number> | null>(null)
+  const colorGroupsRef     = useRef<Map<string, number[]>>(new Map())
+  const colorModeRef       = useRef<ColorMode>('type')
+  const activeFilterARef   = useRef<((p: Pokemon) => boolean) | null>(null)
+  const activeFilterBRef   = useRef<((p: Pokemon) => boolean) | null>(null)
+  const axisXRef           = useRef(0)
+  const axisYRef           = useRef(0)
+  const fitToViewRef       = useRef<() => void>(() => {})
+  const zoomInRef          = useRef<() => void>(() => {})
+  const zoomOutRef         = useRef<() => void>(() => {})
+  const selectedIdxRef     = useRef(-1)
+  const radiiRef           = useRef<Float32Array>(new Float32Array())
+  const showEvoLinesRef    = useRef(false)
+  const spriteCacheRef     = useRef<Map<number, SpriteState>>(new Map())
+  const viewModeRef        = useRef<'pca' | 'umap'>('pca')
+  const selectedChainRef   = useRef<Set<number>>(new Set())
+  const updateViewModeRef  = useRef<(() => void)>(() => {})
+  const panToRef           = useRef<((p: Pokemon) => void)>(() => {})
 
   const [hover, setHover]           = useState<HoverState | null>(null)
   const [matchCount, setMatchCount] = useState(data.pokemon.length)
@@ -235,14 +240,41 @@ export function PokemonMap({ data }: Props) {
     scheduleDrawRef.current?.()
   }, [showEvoLines])
 
-  // ── selectedPokemon → selectedIdx ─────────────────────────────────────────
+  // ── selectedPokemon → selectedIdx + chain set ─────────────────────────────
   const selectedPokemon = useStore(s => s.selectedPokemon)
   useEffect(() => {
-    selectedIdxRef.current = selectedPokemon
+    const idx = selectedPokemon
       ? (idToIdxRef.current.get(selectedPokemon.name) ?? -1)
       : -1
+    selectedIdxRef.current = idx
+    if (selectedPokemon?.evo.chain_id != null) {
+      const chainId = selectedPokemon.evo.chain_id
+      const chainSet = new Set<number>()
+      pokemon.forEach((p, i) => {
+        if (p.evo.chain_id === chainId && i !== idx) chainSet.add(i)
+      })
+      selectedChainRef.current = chainSet
+    } else {
+      selectedChainRef.current = new Set()
+    }
     scheduleDrawRef.current?.()
-  }, [selectedPokemon])
+  }, [selectedPokemon, pokemon])
+
+  // ── viewMode ───────────────────────────────────────────────────────────────
+  const viewMode = useStore(s => s.viewMode)
+  useEffect(() => {
+    viewModeRef.current = viewMode
+    updateViewModeRef.current()
+  }, [viewMode])
+
+  // ── pendingPan ─────────────────────────────────────────────────────────────
+  const pendingPan    = useStore(s => s.pendingPan)
+  const setPendingPan = useStore(s => s.setPendingPan)
+  useEffect(() => {
+    if (!pendingPan) return
+    panToRef.current(pendingPan)
+    setPendingPan(null)
+  }, [pendingPan, setPendingPan])
 
   // ── main canvas setup ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -255,18 +287,54 @@ export function PokemonMap({ data }: Props) {
     let delaunay: Delaunay<readonly [number, number]> | null = null
     let hoveredIdx = -1
     let rafId: number | null = null
+    let userHasInteracted = false
+    let prevW = container.clientWidth
+    let prevH = container.clientHeight
 
     const pcaXs = [...pokemon.map(p => p.pca[0])].sort((a, b) => a - b)
     const pcaYs = [...pokemon.map(p => p.pca[1])].sort((a, b) => a - b)
     const n     = pokemon.length
-    const p2x   = pcaXs[Math.floor(n * 0.02)]
-    const p98x  = pcaXs[Math.min(Math.floor(n * 0.98), n - 1)]
-    const p2y   = pcaYs[Math.floor(n * 0.02)]
-    const p98y  = pcaYs[Math.min(Math.floor(n * 0.98), n - 1)]
+    const pcaBounds = {
+      p2x:  pcaXs[Math.floor(n * 0.02)],
+      p98x: pcaXs[Math.min(Math.floor(n * 0.98), n - 1)],
+      p2y:  pcaYs[Math.floor(n * 0.02)],
+      p98y: pcaYs[Math.min(Math.floor(n * 0.98), n - 1)],
+    }
+    const umapPokemon = pokemon.filter(p => p.umap != null)
+    let umapBounds = pcaBounds
+    if (umapPokemon.length > 0) {
+      const uxs = umapPokemon.map(p => p.umap![0]).sort((a, b) => a - b)
+      const uys = umapPokemon.map(p => p.umap![1]).sort((a, b) => a - b)
+      const nu  = umapPokemon.length
+      umapBounds = {
+        p2x:  uxs[Math.floor(nu * 0.02)],
+        p98x: uxs[Math.min(Math.floor(nu * 0.98), nu - 1)],
+        p2y:  uys[Math.floor(nu * 0.02)],
+        p98y: uys[Math.min(Math.floor(nu * 0.98), nu - 1)],
+      }
+    }
+    function getBounds() {
+      return viewModeRef.current === 'umap' ? umapBounds : pcaBounds
+    }
 
     const axisLabels  = getAxisLabels(data.meta.pca.components, data.meta.features)
     const evoPairs    = buildEvoPairs(pokemon)
-    const zoomBehavior = zoom<HTMLCanvasElement, unknown>().scaleExtent([0.3, 40])
+    const zoomBehavior = zoom<HTMLCanvasElement, unknown>()
+      .scaleExtent([0.3, 40])
+      .filter((event) => {
+        if (event.type === 'dblclick' && delaunay && baseCoords.length > 0) {
+          const me = event as MouseEvent
+          const [mx, my] = transform.invert([me.offsetX, me.offsetY] as [number, number])
+          const idx = delaunay.find(mx, my)
+          const [bx, by] = baseCoords[idx]
+          const dist = Math.hypot(
+            me.offsetX - (transform.k * bx + transform.x),
+            me.offsetY - (transform.k * by + transform.y),
+          )
+          if (dist < HOVER_THRESHOLD) return false
+        }
+        return !(event as MouseEvent).button
+      })
 
     function updateZoomExtent(w: number, h: number) {
       const m = Math.max(w, h) * 0.4
@@ -274,7 +342,11 @@ export function PokemonMap({ data }: Props) {
     }
 
     function setupGeometry(w: number, h: number) {
-      baseCoords = pokemon.map(pk => toBase(pk.pca[0], pk.pca[1], w, h))
+      baseCoords = viewModeRef.current === 'umap'
+        ? pokemon.map(pk => (pk.umap != null)
+            ? toBase(pk.umap[0], pk.umap[1], w, h)
+            : toBase(pk.pca[0], pk.pca[1], w, h))
+        : pokemon.map(pk => toBase(pk.pca[0], pk.pca[1], w, h))
       let sumX = 0, sumY = 0
       for (const [x, y] of baseCoords) { sumX += x; sumY += y }
       axisXRef.current = sumX / baseCoords.length
@@ -429,6 +501,22 @@ export function PokemonMap({ data }: Props) {
         }
         ctx.stroke()
 
+        // ── I-chain. Evolution chain highlight rings ──────────────────────
+        {
+          const chainSet = selectedChainRef.current
+          if (chainSet.size > 0) {
+            ctx.strokeStyle = 'rgba(248, 208, 48, 0.55)'
+            ctx.lineWidth   = 1.2 / k
+            ctx.beginPath()
+            for (const ci of chainSet) {
+              const [x, y] = baseCoords[ci]
+              const h = ((radii[ci] ?? POINT_HALF) + 2.5) / k
+              ctx.rect(x - h, y - h, h * 2, h * 2)
+            }
+            ctx.stroke()
+          }
+        }
+
         // ── J. Hover outline ──────────────────────────────────────────────
         if (hoveredIdx >= 0) {
           const [x, y] = baseCoords[hoveredIdx]
@@ -473,25 +561,65 @@ export function PokemonMap({ data }: Props) {
             loadSprite(i, url)
           }
         }
+        // ── L-chain. Evolution chain rings in sprite mode ──────────────────
+        {
+          const chainSet = selectedChainRef.current
+          if (chainSet.size > 0) {
+            ctx.strokeStyle = 'rgba(248, 208, 48, 0.7)'
+            ctx.lineWidth = 2.5
+            const spriteHalf = SPRITE_SCREEN_SIZE * (k / SPRITE_ZOOM_THRESHOLD) / 2 + 4
+            ctx.beginPath()
+            for (const ci of chainSet) {
+              const [wx, wy] = baseCoords[ci]
+              const sx = wx * k + transform.x
+              const sy = wy * k + transform.y
+              ctx.rect(sx - spriteHalf, sy - spriteHalf, spriteHalf * 2, spriteHalf * 2)
+            }
+            ctx.stroke()
+          }
+        }
         ctx.imageSmoothingEnabled = true
       }
 
-      // ── M. Axis labels (screen space) ───────────────────────────────────
-      const screenAY = k * axisYRef.current + transform.y
-      const screenAX = k * axisXRef.current + transform.x
+      // ── M. Axis labels / UMAP legend (screen space) ──────────────────────
       ctx.save()
       ctx.font      = '10px "Pixelify Sans", monospace'
       ctx.fillStyle = pixel
         ? 'rgba(74, 106, 136, 0.65)'
         : 'rgba(107, 114, 128, 0.55)'
-      if (screenAY > 16 && screenAY < height - 12) {
-        ctx.textAlign = 'left';  ctx.fillText(axisLabels.xLeft,  8,         screenAY - 4)
-        ctx.textAlign = 'right'; ctx.fillText(axisLabels.xRight, width - 8, screenAY - 4)
-      }
-      if (screenAX > 8 && screenAX < width - 60) {
+
+      if (viewModeRef.current === 'pca') {
+        const screenAY = k * axisYRef.current + transform.y
+        const screenAX = k * axisXRef.current + transform.x
+        if (screenAY > 16 && screenAY < height - 12) {
+          ctx.textAlign = 'left';  ctx.fillText(axisLabels.xLeft,  8,         screenAY - 4)
+          ctx.textAlign = 'right'; ctx.fillText(axisLabels.xRight, width - 8, screenAY - 4)
+        }
+        if (screenAX > 8 && screenAX < width - 60) {
+          ctx.textAlign = 'left'
+          ctx.fillText(axisLabels.yTop, screenAX + 4, 13)
+          ctx.fillText(axisLabels.yBot, screenAX + 4, height - 6)
+        }
+      } else {
+        // UMAP: axes have no linear meaning — show proximity legend
         ctx.textAlign = 'left'
-        ctx.fillText(axisLabels.yTop, screenAX + 4, 13)
-        ctx.fillText(axisLabels.yBot, screenAX + 4, height - 6)
+        ctx.fillText('UMAP — proximity ≈ similarity', 10, height - 18)
+        ctx.fillText('clusters = similar stat profiles', 10, height - 6)
+
+        // corner dots: nearby (top-left) and far (bottom-right)
+        const dotColor = pixel ? 'rgba(74, 106, 136, 0.5)' : 'rgba(107, 114, 128, 0.45)'
+        ctx.fillStyle = dotColor
+        ctx.beginPath(); ctx.arc(width - 24, 8, 3, 0, TWO_PI); ctx.fill()
+        ctx.beginPath(); ctx.arc(width - 14, 8, 3, 0, TWO_PI); ctx.fill()
+        ctx.beginPath(); ctx.arc(width - 19, 8, 3, 0, TWO_PI); ctx.fill()
+        ctx.fillStyle = pixel ? 'rgba(74, 106, 136, 0.65)' : 'rgba(107, 114, 128, 0.55)'
+        ctx.textAlign = 'right'
+        ctx.fillText('← close = alike', width - 8, 22)
+
+        ctx.beginPath(); ctx.arc(width - 30, height - 10, 3, 0, TWO_PI); ctx.fill()
+        ctx.beginPath(); ctx.arc(width - 14, height - 10, 3, 0, TWO_PI); ctx.fill()
+        ctx.fillStyle = pixel ? 'rgba(74, 106, 136, 0.65)' : 'rgba(107, 114, 128, 0.55)'
+        ctx.fillText('far = different →', width - 8, height - 18)
       }
       ctx.restore()
     }
@@ -506,17 +634,58 @@ export function PokemonMap({ data }: Props) {
     const sel = select(canvas)
 
     fitToViewRef.current = () => {
-      zoomBehavior.transform(sel, computeFitTransform(p2x, p2y, p98x, p98y, canvas.width, canvas.height))
+      userHasInteracted = false
+      const b = getBounds()
+      zoomBehavior.transform(sel, computeFitTransform(b.p2x, b.p2y, b.p98x, b.p98y, canvas.width, canvas.height))
     }
-    zoomInRef.current  = () => { zoomBehavior.scaleBy(sel, 1.4) }
-    zoomOutRef.current = () => { zoomBehavior.scaleBy(sel, 1 / 1.4) }
+    zoomInRef.current  = () => { userHasInteracted = true; zoomBehavior.scaleBy(sel, 1.4) }
+    zoomOutRef.current = () => { userHasInteracted = true; zoomBehavior.scaleBy(sel, 1 / 1.4) }
+    updateViewModeRef.current = () => {
+      userHasInteracted = false
+      setupGeometry(canvas.width, canvas.height)
+      const b = getBounds()
+      zoomBehavior.transform(sel, computeFitTransform(b.p2x, b.p2y, b.p98x, b.p98y, canvas.width, canvas.height))
+    }
+    panToRef.current = (p: Pokemon) => {
+      const idx = idToIdxRef.current.get(p.name)
+      if (idx === undefined || !baseCoords[idx]) return
+      const [wx, wy] = baseCoords[idx]
+      userHasInteracted = true
+      zoomBehavior.transform(sel,
+        zoomIdentity
+          .translate(canvas.width / 2 - transform.k * wx, canvas.height / 2 - transform.k * wy)
+          .scale(transform.k)
+      )
+    }
 
     const ro = new ResizeObserver(() => {
       const w = container.clientWidth
       const h = container.clientHeight
       canvas.width = w; canvas.height = h
+
+      if (!userHasInteracted) {
+        prevW = w; prevH = h
+        setupGeometry(w, h); updateZoomExtent(w, h)
+        const b0 = getBounds()
+        zoomBehavior.transform(sel, computeFitTransform(b0.p2x, b0.p2y, b0.p98x, b0.p98y, w, h))
+        return
+      }
+
+      // Compute the PCA coordinate currently at the viewport center
+      const worldCx = (prevW / 2 - transform.x) / transform.k
+      const worldCy = (prevH / 2 - transform.y) / transform.k
+      const pcaCx = (worldCx - PADDING) * 2 / (prevW - 2 * PADDING) - 1
+      const pcaCy = 1 - (worldCy - PADDING) * 2 / (prevH - 2 * PADDING)
+
+      prevW = w; prevH = h
       setupGeometry(w, h); updateZoomExtent(w, h)
-      zoomBehavior.transform(sel, computeFitTransform(p2x, p2y, p98x, p98y, w, h))
+
+      // Reposition so the same world coordinate stays at the new viewport center
+      const newWorldCx = ((pcaCx + 1) / 2) * (w - 2 * PADDING) + PADDING
+      const newWorldCy = (1 - (pcaCy + 1) / 2) * (h - 2 * PADDING) + PADDING
+      zoomBehavior.transform(sel,
+        zoomIdentity.translate(w / 2 - transform.k * newWorldCx, h / 2 - transform.k * newWorldCy).scale(transform.k)
+      )
     })
     ro.observe(container)
 
@@ -527,10 +696,12 @@ export function PokemonMap({ data }: Props) {
 
     zoomBehavior.on('zoom', (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
       transform = event.transform
+      if (event.sourceEvent !== null) userHasInteracted = true
       scheduleDraw()
     })
     sel.call(zoomBehavior)
-    zoomBehavior.transform(sel, computeFitTransform(p2x, p2y, p98x, p98y, canvas.width, canvas.height))
+    const initB = getBounds()
+    zoomBehavior.transform(sel, computeFitTransform(initB.p2x, initB.p2y, initB.p98x, initB.p98y, canvas.width, canvas.height))
 
     function onMouseMove(e: MouseEvent) {
       if (!delaunay) return
@@ -565,9 +736,30 @@ export function PokemonMap({ data }: Props) {
         e.offsetY - (transform.k * by + transform.y),
       )
       if (dist < HOVER_THRESHOLD) {
+        // collect all pokemon within STACK_THRESHOLD canvas pixels of the nearest
+        const stack: number[] = []
+        for (let i = 0; i < pokemon.length; i++) {
+          const [xi, yi] = baseCoords[i]
+          if (Math.hypot(xi - bx, yi - by) < STACK_THRESHOLD) stack.push(i)
+        }
+        stack.sort((a, b) =>
+          Math.hypot(baseCoords[a][0] - bx, baseCoords[a][1] - by) -
+          Math.hypot(baseCoords[b][0] - bx, baseCoords[b][1] - by)
+        )
+
         const { selectedPokemon, setSelectedPokemon } = useStore.getState()
-        const clicked = pokemon[idx]
-        setSelectedPokemon(selectedPokemon?.name === clicked.name ? null : clicked)
+        const stackPokemon = stack.map(i => pokemon[i])
+
+        if (stackPokemon.length <= 1) {
+          const clicked = pokemon[idx]
+          setSelectedPokemon(selectedPokemon?.name === clicked.name ? null : clicked)
+        } else {
+          const curPos = selectedPokemon
+            ? stackPokemon.findIndex(p => p.name === selectedPokemon.name)
+            : -1
+          const nextPos = curPos >= 0 ? (curPos + 1) % stackPokemon.length : 0
+          setSelectedPokemon(stackPokemon[nextPos])
+        }
       }
     }
 
@@ -576,10 +768,12 @@ export function PokemonMap({ data }: Props) {
     canvas.addEventListener('click', onClick)
 
     return () => {
-      scheduleDrawRef.current = null
-      fitToViewRef.current = () => {}
-      zoomInRef.current    = () => {}
-      zoomOutRef.current   = () => {}
+      scheduleDrawRef.current    = null
+      fitToViewRef.current       = () => {}
+      zoomInRef.current          = () => {}
+      zoomOutRef.current         = () => {}
+      updateViewModeRef.current  = () => {}
+      panToRef.current           = () => {}
       ro.disconnect()
       sel.on('.zoom', null)
       canvas.removeEventListener('mousemove', onMouseMove)

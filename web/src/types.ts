@@ -60,6 +60,7 @@ export interface Pokemon {
   habitat: string | null
   growth_rate: string | null
   pca: [number, number]
+  umap?: [number, number] | null
 }
 
 export interface PcaMeta {

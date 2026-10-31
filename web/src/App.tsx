@@ -4,10 +4,14 @@ import { PokemonMap } from './components/PokemonMap'
 import { Sidebar } from './components/Sidebar'
 import { FilterChips } from './components/FilterChips'
 import { PokemonDetailPanel } from './components/PokemonDetailPanel'
+import { SearchBar } from './components/SearchBar'
+import { useStore } from './store/useStore'
 
 export default function App() {
   const [data,  setData]  = useState<PokemonData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const viewMode    = useStore(s => s.viewMode)
+  const setViewMode = useStore(s => s.setViewMode)
 
   useEffect(() => {
     fetch('/data/pokemon.json')
@@ -45,6 +49,7 @@ export default function App() {
   const { pca } = data.meta
   const pc1 = (pca.explained_variance_ratio[0] * 100).toFixed(1)
   const pc2 = (pca.explained_variance_ratio[1] * 100).toFixed(1)
+  const hasUmap = data.pokemon.some(p => p.umap != null)
 
   return (
     <div className="flex flex-col h-full bg-tk-bg text-tk-t1">
@@ -61,9 +66,35 @@ export default function App() {
         <span className="text-xs text-tk-t4">
           {data.pokemon.length} Pokémon
         </span>
+        {/* View mode toggle */}
+        <div className="flex items-center gap-0.5 ml-2">
+          <button
+            onClick={() => setViewMode('pca')}
+            className={`text-[10px] font-pixel px-2 py-0.5 border transition-colors ${
+              viewMode === 'pca'
+                ? 'border-tk-ba bg-tk-ba/20 text-tk-t1'
+                : 'border-tk-b1 text-tk-t4 hover:text-tk-t2'
+            }`}
+          >
+            PCA
+          </button>
+          <button
+            onClick={() => setViewMode('umap')}
+            disabled={!hasUmap}
+            title={hasUmap ? undefined : 'Run pipeline with umap-learn to enable'}
+            className={`text-[10px] font-pixel px-2 py-0.5 border transition-colors ${
+              viewMode === 'umap'
+                ? 'border-tk-ba bg-tk-ba/20 text-tk-t1'
+                : 'border-tk-b1 text-tk-t4 hover:text-tk-t2'
+            } disabled:opacity-30 disabled:cursor-not-allowed`}
+          >
+            UMAP
+          </button>
+        </div>
         <span className="ml-auto text-xs text-tk-t5 tabular-nums">
-          PC1 {pc1}%&nbsp;&nbsp;PC2 {pc2}%
+          {viewMode === 'pca' ? `PC1 ${pc1}%  PC2 ${pc2}%` : 'UMAP'}
         </span>
+        <SearchBar pokemon={data.pokemon} />
       </header>
 
       {/* Body */}

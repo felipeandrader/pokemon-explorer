@@ -38,6 +38,12 @@ interface AppState {
   selectedPokemon: Pokemon | null
   setSelectedPokemon: (p: Pokemon | null) => void
 
+  pendingPan: Pokemon | null
+  setPendingPan: (p: Pokemon | null) => void
+
+  viewMode: 'pca' | 'umap'
+  setViewMode: (m: 'pca' | 'umap') => void
+
   filterStateA: FilterState
   activeFilterA: ((p: Pokemon) => boolean) | null
   filterStateB: FilterState
@@ -91,6 +97,12 @@ export const useStore = create<AppState>((set) => ({
 
   selectedPokemon: null,
   setSelectedPokemon: (p) => set({ selectedPokemon: p }),
+
+  pendingPan: null,
+  setPendingPan: (p) => set({ pendingPan: p }),
+
+  viewMode: 'pca',
+  setViewMode: (m) => set({ viewMode: m }),
 
   filterStateA: EMPTY_FILTER,
   activeFilterA: null,
